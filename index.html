@@ -50,7 +50,7 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // === 修复1：使用真实的 Firebase 配置替代未定义的全局变量 ===
+        // === Firebase 配置 ===
         const firebaseConfig = {
           apiKey: "AIzaSyBrSB-jv208IMVStNgvnyq0ARitjgomw0",
           authDomain: "class-journal-2a1ec.firebaseapp.com",
@@ -63,7 +63,6 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        // 修复2：给 appId 赋一个静态值，替代未定义的 __app_id
         const appId = 'class-journal-2a1ec';
 
         const { useState, useEffect } = React;
@@ -160,13 +159,14 @@
           const [activeDialogue, setActiveDialogue] = useState(null); 
           const [formData, setFormData] = useState({ authorName: '', roleId: 1, title: '', content: '', type: '沟通时刻' });
 
-          // 1. Firebase 登录验证（修复3：直接使用匿名登录回退）
+          // 1. Firebase 登录验证
           useEffect(() => {
             const initAuth = async () => {
               try {
                 await signInAnonymously(auth);
               } catch (error) {
-                console.error("Authentication Error", error);
+                console.error("Auth Error:", error);
+                alert("❌ 无法建立冒险者身份连接: " + error.message);
               }
             };
             initAuth();
@@ -184,7 +184,8 @@
               data.sort((a, b) => b.createdAt - a.createdAt);
               setEntries(data);
             }, (error) => {
-              console.error("Firestore Error:", error);
+              console.error("Firestore Subscribe Error:", error);
+              // 静默报错，避免干扰阅览
             });
             
             return () => unsubscribe();
@@ -200,32 +201,56 @@
             </div>
           );
 
+          // === 重写的提交函数：加入弹窗反馈 ===
           const handleSubmit = async (e) => {
             e.preventDefault();
-            if (!formData.title || !formData.content || !user) return;
             
+            if (!formData.title || !formData.content) {
+                alert("⚠️ 请填写完整的标题和内容！");
+                return;
+            }
+
+            // 如果没有获取到用户状态，尝试重新连接一次
+            let currentUser = user;
+            if (!currentUser) {
+                try {
+                    const credentials = await signInAnonymously(auth);
+                    currentUser = credentials.user;
+                } catch(err) {
+                    alert("❌ 无法连接服务器建立身份：" + err.message);
+                    return;
+                }
+            }
+
             const newEntry = {
               ...formData, 
-              authorUid: user.uid,
+              authorUid: currentUser.uid,
               createdAt: Date.now(), 
               dateStr: new Date().toLocaleDateString()
             };
 
             try {
+              // 提交到数据库
               await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'journal_entries'), newEntry);
               setFormData({ ...formData, title: '', content: '' });
               setIsModalOpen(false);
+              alert("🎉 记录成功上传至云端数据库！"); 
             } catch (error) {
-              console.error("Error adding document: ", error);
+              console.error("上传错误: ", error);
+              alert(`❌ 保存失败！\n\n数据库拒绝了写入请求。\n\n解决办法：请去 Firebase 控制台的【Firestore Database】 -> 【Rules】中，将规则修改为 allow read, write: if true;`);
             }
           };
 
           const deleteEntry = async (id) => {
             if (!user) return;
+            if(!window.confirm("确定要删除这条记录吗？")) return;
+            
             try {
               await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'journal_entries', id));
+              alert("🗑️ 删除成功！");
             } catch (error) {
               console.error("Error deleting document: ", error);
+              alert("❌ 删除失败，权限不足或网络问题。");
             }
           };
 
