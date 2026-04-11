@@ -4,34 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>班级手账系统</title>
-    <!-- Firebase SDK 引入 -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js"></script>
-
-    <!-- Firebase 初始化配置（替换成你自己的！） -->
-    <script>
-      const firebaseConfig = {
-        apiKey: "AIzaSyBrSB-jv208IMVStNgvnyq0ARitjgomw0",
-        authDomain: "class-journal-2a1ec.firebaseapp.com",
-        projectId: "class-journal-2a1ec",
-        storageBucket: "class-journal-2a1ec.firebasestorage.app",
-        messagingSenderId: "61465704072",
-        appId: "1:61465704072:web:cb592c29cd9c985e87d13d"
-      };
-
-      // 初始化Firebase
-      firebase.initializeApp(firebaseConfig);
-      const auth = firebase.auth();
-      const db = firebase.firestore();
-    </script>
-    <!-- 引入 Tailwind CSS -->
+    
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 React 和 ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- 引入 Babel 用于在浏览器中编译 JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
     <style>
       @import url('https://fonts.googleapis.com/css2?family=DotGothic16&display=swap');
       .pixel-font { font-family: 'DotGothic16', 'Courier New', Courier, monospace; }
@@ -61,29 +39,35 @@
       .scrollbar-hide::-webkit-scrollbar { display: none; }
       .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
       .scanline { width: 100%; height: 10px; background: rgba(255,255,255,0.1); position: absolute; z-index: 40; animation: scanline 6s linear infinite; pointer-events: none; }
-      @keyframes scanline { 0% { top: -10%; } 100% { top: 110%; } }
       body { margin: 0; overflow: hidden; background-color: #171717; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
-    <!-- 注意：为了支持 Firebase 模块引入，增加了 data-type="module" -->
     <script type="text/babel" data-type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // === Firebase 初始化 ===
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        // === 修复1：使用真实的 Firebase 配置替代未定义的全局变量 ===
+        const firebaseConfig = {
+          apiKey: "AIzaSyBrSB-jv208IMVStNgvnyq0ARitjgomw0",
+          authDomain: "class-journal-2a1ec.firebaseapp.com",
+          projectId: "class-journal-2a1ec",
+          storageBucket: "class-journal-2a1ec.firebasestorage.app",
+          messagingSenderId: "61465704072",
+          appId: "1:61465704072:web:cb592c29cd9c985e87d13d"
+        };
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // 修复2：给 appId 赋一个静态值，替代未定义的 __app_id
+        const appId = 'class-journal-2a1ec';
 
         const { useState, useEffect } = React;
 
-        // === 替换为内联 SVG 图标，确保脱机可用 ===
         const PlayIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>;
         const BoxIcon = ({size=20}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>;
         const SparklesIcon = ({className}) => <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path><path d="M5 3v4"></path><path d="M19 17v4"></path><path d="M3 5h4"></path><path d="M17 19h4"></path></svg>;
@@ -133,7 +117,7 @@
 
         const CharacterImage = ({ member, size = 48, isIdle = true, direction = 'right' }) => (
           <div className={`relative flex items-center justify-center ${isIdle ? 'animate-pixel-idle' : ''}`}
-               style={{ width: size, height: size, transform: direction === 'left' ? 'scaleX(-1)' : 'none' }}>
+                style={{ width: size, height: size, transform: direction === 'left' ? 'scaleX(-1)' : 'none' }}>
             <img src={member.avatar} alt={member.class} className="pixel-rendering-img w-full h-full object-contain"
                  onError={(e) => {
                    e.target.onerror = null; e.target.style.backgroundColor = '#334155'; e.target.style.padding = '8px'; e.target.style.borderRadius = '4px';
@@ -169,7 +153,6 @@
         };
 
         const App = () => {
-          // 修改：移除 LocalStorage，改为 Firebase 云端状态
           const [user, setUser] = useState(null);
           const [entries, setEntries] = useState([]);
           const [currentPageIndex, setCurrentPageIndex] = useState(0);
@@ -177,15 +160,11 @@
           const [activeDialogue, setActiveDialogue] = useState(null); 
           const [formData, setFormData] = useState({ authorName: '', roleId: 1, title: '', content: '', type: '沟通时刻' });
 
-          // 1. Firebase 登录验证
+          // 1. Firebase 登录验证（修复3：直接使用匿名登录回退）
           useEffect(() => {
             const initAuth = async () => {
               try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                  await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                  await signInAnonymously(auth);
-                }
+                await signInAnonymously(auth);
               } catch (error) {
                 console.error("Authentication Error", error);
               }
@@ -198,12 +177,10 @@
           // 2. Firebase 实时数据拉取
           useEffect(() => {
             if (!user) return;
-            // 使用 public data 路径供所有小队成员共享查看记录
             const entriesRef = collection(db, 'artifacts', appId, 'public', 'data', 'journal_entries');
             
             const unsubscribe = onSnapshot(entriesRef, (snapshot) => {
               const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-              // 根据时间排序展示，最新的在前
               data.sort((a, b) => b.createdAt - a.createdAt);
               setEntries(data);
             }, (error) => {
@@ -223,7 +200,6 @@
             </div>
           );
 
-          // 提交数据并保存到 Firebase
           const handleSubmit = async (e) => {
             e.preventDefault();
             if (!formData.title || !formData.content || !user) return;
@@ -244,7 +220,6 @@
             }
           };
 
-          // 删除云端数据
           const deleteEntry = async (id) => {
             if (!user) return;
             try {
