@@ -47,7 +47,19 @@
 <body>
     <div id="root"></div>
 
-    <script type="text/babel">
+    <!-- 注意：为了支持 Firebase 模块引入，增加了 data-type="module" -->
+    <script type="text/babel" data-type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // === Firebase 初始化 ===
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
         const { useState, useEffect } = React;
 
         // === 替换为内联 SVG 图标，确保脱机可用 ===
@@ -136,15 +148,49 @@
         };
 
         const App = () => {
-          // 修改为 LocalStorage 本地存储逻辑
-          const [entries, setEntries] = useState(() => {
-            const saved = localStorage.getItem('pixel_journal_local_data');
-            return saved ? JSON.parse(saved) : [];
-          });
+          // 修改：移除 LocalStorage，改为 Firebase 云端状态
+          const [user, setUser] = useState(null);
+          const [entries, setEntries] = useState([]);
           const [currentPageIndex, setCurrentPageIndex] = useState(0);
           const [isModalOpen, setIsModalOpen] = useState(false);
           const [activeDialogue, setActiveDialogue] = useState(null); 
           const [formData, setFormData] = useState({ authorName: '', roleId: 1, title: '', content: '', type: '沟通时刻' });
+
+          // 1. Firebase 登录验证
+          useEffect(() => {
+            const initAuth = async () => {
+              try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                  await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                  await signInAnonymously(auth);
+                }
+              } catch (error) {
+                console.error("Authentication Error", error);
+              }
+            };
+            initAuth();
+            const unsubscribe = onAuthStateChanged(auth, setUser);
+            return () => unsubscribe();
+          }, []);
+
+          // 2. Firebase 实时数据拉取
+          useEffect(() => {
+            if (!user) return;
+            // 使用 public data 路径供所有小队成员共享查看记录
+            const entriesRef = collection(db, 'artifacts', appId, 'public', 'data', 'journal_entries');
+            
+            const unsubscribe = onSnapshot(entriesRef, (snapshot) => {
+              const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              // 根据时间排序展示，最新的在前
+              data.sort((a, b) => b.createdAt - a.createdAt);
+              setEntries(data);
+            }, (error) => {
+              console.error("Firestore Error:", error);
+            });
+            
+            return () => unsubscribe();
+          }, [user]);
 
           const FloatingParticles = () => (
             <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
@@ -156,29 +202,35 @@
             </div>
           );
 
-          // 提交数据并保存到 LocalStorage
-          const handleSubmit = (e) => {
+          // 提交数据并保存到 Firebase
+          const handleSubmit = async (e) => {
             e.preventDefault();
-            if (!formData.title || !formData.content) return;
+            if (!formData.title || !formData.content || !user) return;
+            
             const newEntry = {
               ...formData, 
-              id: Date.now().toString(), 
-              authorUid: 'local-user', // 离线版默认固定身份
+              authorUid: user.uid,
               createdAt: Date.now(), 
               dateStr: new Date().toLocaleDateString()
             };
-            const updatedEntries = [newEntry, ...entries];
-            setEntries(updatedEntries);
-            localStorage.setItem('pixel_journal_local_data', JSON.stringify(updatedEntries));
-            setFormData({ ...formData, title: '', content: '' });
-            setIsModalOpen(false);
+
+            try {
+              await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'journal_entries'), newEntry);
+              setFormData({ ...formData, title: '', content: '' });
+              setIsModalOpen(false);
+            } catch (error) {
+              console.error("Error adding document: ", error);
+            }
           };
 
-          // 删除数据
-          const deleteEntry = (id) => {
-            const updatedEntries = entries.filter(e => e.id !== id);
-            setEntries(updatedEntries);
-            localStorage.setItem('pixel_journal_local_data', JSON.stringify(updatedEntries));
+          // 删除云端数据
+          const deleteEntry = async (id) => {
+            if (!user) return;
+            try {
+              await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'journal_entries', id));
+            } catch (error) {
+              console.error("Error deleting document: ", error);
+            }
           };
 
           const navPage = (dir) => { setActiveDialogue(null); setCurrentPageIndex(prev => prev + dir); };
@@ -191,7 +243,7 @@
                   <div className="space-y-4">
                     <h2 className="text-xl md:text-2xl text-yellow-400 pixel-font tracking-widest animate-pulse">★ 浙江师范大学经济与管理学院 ★</h2>
                     <h1 className="text-4xl md:text-6xl font-bold text-white pixel-font leading-tight drop-shadow-[4px_4px_0_rgba(255,0,0,0.8)]">“经”心领航 <br/> 聚力同行</h1>
-                    <div className="rpg-border inline-block p-2 mt-4 bg-blue-900 text-yellow-300 pixel-font animate-bounce">领导力动态手账系统 (单机离线版)</div>
+                    <div className="rpg-border inline-block p-2 mt-4 bg-blue-900 text-yellow-300 pixel-font animate-bounce">领导力动态手账系统 (云端同步版)</div>
                   </div>
                   <div className="flex justify-center gap-8 my-8 items-end">
                      <CharacterImage member={TEAM_ROSTER[0]} size={64} direction="right" />
@@ -328,7 +380,7 @@
                      <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div>
                      <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
                    </div>
-                   <div className="text-gray-400 text-xs pixel-font font-bold tracking-widest">FF-LEADERSHIP RPG SYSTEM (LOCAL EXE VER)</div>
+                   <div className="text-gray-400 text-xs pixel-font font-bold tracking-widest">FF-LEADERSHIP RPG SYSTEM (CLOUD SYNC VER)</div>
                 </div>
 
                 <div className="flex-1 bg-[#0a0a0a] relative crt overflow-hidden flex flex-col">
@@ -396,7 +448,7 @@
                       </div>
 
                       <div className="pt-2 flex justify-end sticky bottom-0 bg-[#111] pb-4 border-t border-gray-800">
-                        <button type="submit" className="btn-pixel bg-green-700 hover:bg-green-600 text-white px-8 py-3 pixel-font text-lg shadow-[0_0_15px_rgba(21,128,61,0.6)] active:translate-y-1">保存至本地 [ ENTER ]</button>
+                        <button type="submit" className="btn-pixel bg-green-700 hover:bg-green-600 text-white px-8 py-3 pixel-font text-lg shadow-[0_0_15px_rgba(21,128,61,0.6)] active:translate-y-1">上传至云端库 [ ENTER ]</button>
                       </div>
                     </form>
                   </div>
