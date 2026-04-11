@@ -4,6 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>班级手账系统</title>
+    <!-- Firebase SDK 引入 -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js"></script>
+
+    <!-- Firebase 初始化配置（替换成你自己的！） -->
+    <script>
+      const firebaseConfig = {
+        apiKey: "AIzaSyBrSB-jv208IMVStNgvnyq0ARitjgomw0",
+        authDomain: "class-journal-2a1ec.firebaseapp.com",
+        projectId: "class-journal-2a1ec",
+        storageBucket: "class-journal-2a1ec.firebasestorage.app",
+        messagingSenderId: "61465704072",
+        appId: "1:61465704072:web:cb592c29cd9c985e87d13d"
+      };
+
+      // 初始化Firebase
+      firebase.initializeApp(firebaseConfig);
+      const auth = firebase.auth();
+      const db = firebase.firestore();
+    </script>
     <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 React 和 ReactDOM -->
