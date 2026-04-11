@@ -4,12 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>班级手账系统</title>
-    
+    <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 React 和 ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- 引入 Babel 用于在浏览器中编译 JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
     <style>
       @import url('https://fonts.googleapis.com/css2?family=DotGothic16&display=swap');
       .pixel-font { font-family: 'DotGothic16', 'Courier New', Courier, monospace; }
@@ -39,34 +40,17 @@
       .scrollbar-hide::-webkit-scrollbar { display: none; }
       .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
       .scanline { width: 100%; height: 10px; background: rgba(255,255,255,0.1); position: absolute; z-index: 40; animation: scanline 6s linear infinite; pointer-events: none; }
+      @keyframes scanline { 0% { top: -10%; } 100% { top: 110%; } }
       body { margin: 0; overflow: hidden; background-color: #171717; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
-    <script type="text/babel" data-type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <script type="text/babel">
+        const { useState, useEffect } = React;
 
-        // === 终极修复：填入了完全正确的 API 密钥 ===
-        const firebaseConfig = {
-          apiKey: "AIzaSyBrsBo-jv208IMVStNgvnyq0ARitjgomw0",
-          authDomain: "class-journal-2a1ec.firebaseapp.com",
-          projectId: "class-journal-2a1ec",
-          storageBucket: "class-journal-2a1ec.firebasestorage.app",
-          messagingSenderId: "61465704072",
-          appId: "1:61465704072:web:cb592c29cd9c985e87d13d"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = 'class-journal-2a1ec';
-
-        const { useState, useEffect, useCallback } = React;
-
+        // === 替换为内联 SVG 图标，确保脱机可用 ===
         const PlayIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>;
         const BoxIcon = ({size=20}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>;
         const SparklesIcon = ({className}) => <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path><path d="M5 3v4"></path><path d="M19 17v4"></path><path d="M3 5h4"></path><path d="M17 19h4"></path></svg>;
@@ -116,7 +100,7 @@
 
         const CharacterImage = ({ member, size = 48, isIdle = true, direction = 'right' }) => (
           <div className={`relative flex items-center justify-center ${isIdle ? 'animate-pixel-idle' : ''}`}
-                style={{ width: size, height: size, transform: direction === 'left' ? 'scaleX(-1)' : 'none' }}>
+               style={{ width: size, height: size, transform: direction === 'left' ? 'scaleX(-1)' : 'none' }}>
             <img src={member.avatar} alt={member.class} className="pixel-rendering-img w-full h-full object-contain"
                  onError={(e) => {
                    e.target.onerror = null; e.target.style.backgroundColor = '#334155'; e.target.style.padding = '8px'; e.target.style.borderRadius = '4px';
@@ -152,96 +136,15 @@
         };
 
         const App = () => {
-          const [user, setUser] = useState(null);
-          const [entries, setEntries] = useState([]);
+          // 修改为 LocalStorage 本地存储逻辑
+          const [entries, setEntries] = useState(() => {
+            const saved = localStorage.getItem('pixel_journal_local_data');
+            return saved ? JSON.parse(saved) : [];
+          });
           const [currentPageIndex, setCurrentPageIndex] = useState(0);
           const [isModalOpen, setIsModalOpen] = useState(false);
           const [activeDialogue, setActiveDialogue] = useState(null); 
           const [formData, setFormData] = useState({ authorName: '', roleId: 1, title: '', content: '', type: '沟通时刻' });
-
-          const [isSubmitting, setIsSubmitting] = useState(false);
-          const [authError, setAuthError] = useState('');
-          const [isOfflineMode, setIsOfflineMode] = useState(false);
-
-          const LOCAL_STORAGE_KEY = 'class_journal_entries_local';
-
-          const toFriendlyAuthError = (error) => {
-            const raw = (error && (error.code || error.message)) ? String(error.code || error.message) : '未知错误';
-            if (raw.includes('api-key') || raw.includes('invalid-api-key')) {
-              return 'Firebase API Key 无效或受限。已切换为本地离线模式，可继续提交记录。';
-            }
-            return 'Firebase 登录失败：' + raw + '。已切换为本地离线模式。';
-          };
-
-          const saveLocalEntries = useCallback((list) => {
-            try {
-              localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(list));
-            } catch (e) {
-              console.error('LocalStorage 保存失败:', e);
-            }
-          }, []);
-
-          const loadLocalEntries = useCallback(() => {
-            try {
-              const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-              if (!raw) return [];
-              const parsed = JSON.parse(raw);
-              return Array.isArray(parsed) ? parsed : [];
-            } catch (e) {
-              console.error('LocalStorage 读取失败:', e);
-              return [];
-            }
-          }, []);
-
-          const handleFormKeyDown = (e) => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-              e.preventDefault();
-              e.currentTarget.requestSubmit();
-            }
-          };
-
-          // 1. Firebase 登录验证
-          useEffect(() => {
-            const initAuth = async () => {
-              try {
-                await signInAnonymously(auth);
-                setAuthError('');
-                setIsOfflineMode(false);
-              } catch (error) {
-                console.error("Auth Error:", error);
-                const message = toFriendlyAuthError(error);
-                setAuthError(message);
-                setIsOfflineMode(true);
-                setEntries(loadLocalEntries());
-                alert("⚠️ " + message);
-              }
-            };
-            initAuth();
-            const unsubscribe = onAuthStateChanged(auth, (u) => {
-              setUser(u);
-              if (u) {
-                setAuthError('');
-                setIsOfflineMode(false);
-              }
-            });
-            return () => unsubscribe();
-          }, [loadLocalEntries]);
-
-          // 2. Firebase 实时数据拉取
-          useEffect(() => {
-            if (isOfflineMode || !user) return;
-            const entriesRef = collection(db, 'artifacts', appId, 'public', 'data', 'journal_entries');
-            
-            const unsubscribe = onSnapshot(entriesRef, (snapshot) => {
-              const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-              data.sort((a, b) => b.createdAt - a.createdAt);
-              setEntries(data);
-            }, (error) => {
-              console.error("Firestore Subscribe Error:", error);
-            });
-            
-            return () => unsubscribe();
-          }, [user, isOfflineMode]);
 
           const FloatingParticles = () => (
             <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
@@ -253,90 +156,29 @@
             </div>
           );
 
-          // 提交函数
-          const handleSubmit = async (e) => {
+          // 提交数据并保存到 LocalStorage
+          const handleSubmit = (e) => {
             e.preventDefault();
-            if (isSubmitting) return;
-
-            if (!formData.title || !formData.content) {
-                alert("⚠️ 请填写完整的标题和内容！");
-                return;
-            }
-
-            setIsSubmitting(true);
-
-            try {
-              if (isOfflineMode) {
-                const localEntry = {
-                  ...formData,
-                  id: 'local_' + Date.now(),
-                  authorUid: 'local_user',
-                  createdAt: Date.now(),
-                  dateStr: new Date().toLocaleDateString()
-                };
-                const next = [localEntry, ...entries].sort((a, b) => b.createdAt - a.createdAt);
-                setEntries(next);
-                saveLocalEntries(next);
-                setFormData({ ...formData, title: '', content: '' });
-                setIsModalOpen(false);
-                alert("💾 已保存到本地离线记录（未上传云端）");
-                return;
-              }
-
-              let currentUser = user;
-              if (!currentUser) {
-                  try {
-                      const credentials = await signInAnonymously(auth);
-                      currentUser = credentials.user;
-                  } catch(err) {
-                      const message = toFriendlyAuthError(err);
-                      setAuthError(message);
-                      setIsOfflineMode(true);
-                      setEntries(loadLocalEntries());
-                      alert("⚠️ " + message + "\n\n请重试一次提交（将走本地保存）。");
-                      return;
-                  }
-              }
-
-              const newEntry = {
-                ...formData, 
-                authorUid: currentUser.uid,
-                createdAt: Date.now(), 
-                dateStr: new Date().toLocaleDateString()
-              };
-
-              await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'journal_entries'), newEntry);
-              setFormData({ ...formData, title: '', content: '' });
-              setIsModalOpen(false);
-              alert("🎉 记录成功上传至云端数据库！"); 
-            } catch (error) {
-              console.error("上传错误: ", error);
-              alert(`❌ 保存失败！\n\n数据库拒绝了写入请求。\n\n解决办法：请去 Firebase 控制台的【Firestore Database】 -> 【Rules】中，将规则修改为 allow read, write: if true;`);
-            } finally {
-              setIsSubmitting(false);
-            }
+            if (!formData.title || !formData.content) return;
+            const newEntry = {
+              ...formData, 
+              id: Date.now().toString(), 
+              authorUid: 'local-user', // 离线版默认固定身份
+              createdAt: Date.now(), 
+              dateStr: new Date().toLocaleDateString()
+            };
+            const updatedEntries = [newEntry, ...entries];
+            setEntries(updatedEntries);
+            localStorage.setItem('pixel_journal_local_data', JSON.stringify(updatedEntries));
+            setFormData({ ...formData, title: '', content: '' });
+            setIsModalOpen(false);
           };
 
-          const deleteEntry = async (id) => {
-            if(!window.confirm("确定要删除这条记录吗？")) return;
-
-            if (isOfflineMode) {
-              const next = entries.filter(item => item.id !== id);
-              setEntries(next);
-              saveLocalEntries(next);
-              alert("🗑️ 本地记录已删除");
-              return;
-            }
-
-            if (!user) return;
-            
-            try {
-              await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'journal_entries', id));
-              alert("🗑️ 删除成功！");
-            } catch (error) {
-              console.error("Error deleting document: ", error);
-              alert("❌ 删除失败，权限不足或网络问题。");
-            }
+          // 删除数据
+          const deleteEntry = (id) => {
+            const updatedEntries = entries.filter(e => e.id !== id);
+            setEntries(updatedEntries);
+            localStorage.setItem('pixel_journal_local_data', JSON.stringify(updatedEntries));
           };
 
           const navPage = (dir) => { setActiveDialogue(null); setCurrentPageIndex(prev => prev + dir); };
@@ -349,7 +191,7 @@
                   <div className="space-y-4">
                     <h2 className="text-xl md:text-2xl text-yellow-400 pixel-font tracking-widest animate-pulse">★ 浙江师范大学经济与管理学院 ★</h2>
                     <h1 className="text-4xl md:text-6xl font-bold text-white pixel-font leading-tight drop-shadow-[4px_4px_0_rgba(255,0,0,0.8)]">“经”心领航 <br/> 聚力同行</h1>
-                    <div className="rpg-border inline-block p-2 mt-4 bg-blue-900 text-yellow-300 pixel-font animate-bounce">领导力动态手账系统 (云端同步版)</div>
+                    <div className="rpg-border inline-block p-2 mt-4 bg-blue-900 text-yellow-300 pixel-font animate-bounce">领导力动态手账系统 (单机离线版)</div>
                   </div>
                   <div className="flex justify-center gap-8 my-8 items-end">
                      <CharacterImage member={TEAM_ROSTER[0]} size={64} direction="right" />
@@ -486,7 +328,7 @@
                      <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div>
                      <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
                    </div>
-                   <div className="text-gray-400 text-xs pixel-font font-bold tracking-widest">FF-LEADERSHIP RPG SYSTEM (CLOUD SYNC VER)</div>
+                   <div className="text-gray-400 text-xs pixel-font font-bold tracking-widest">FF-LEADERSHIP RPG SYSTEM (LOCAL EXE VER)</div>
                 </div>
 
                 <div className="flex-1 bg-[#0a0a0a] relative crt overflow-hidden flex flex-col">
@@ -514,18 +356,7 @@
                       <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white btn-pixel p-1 bg-gray-800"><XIcon /></button>
                     </div>
 
-                    <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="space-y-5 pb-4">
-                      <div className="space-y-2">
-                        {authError && (
-                          <div className="text-yellow-300 text-xs pixel-font border border-yellow-400 bg-yellow-900/20 p-2">
-                            ⚠️ {authError}
-                          </div>
-                        )}
-                        <div className="text-gray-400 text-xs pixel-font">
-                          提示：在输入框中按 Enter 是换行；按 Ctrl+Enter 可快速提交。
-                        </div>
-                      </div>
-                      
+                    <form onSubmit={handleSubmit} className="space-y-5 pb-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="flex flex-col space-y-1">
                           <label className="text-green-400 text-sm pixel-font">【选择地图类型】</label>
@@ -565,9 +396,7 @@
                       </div>
 
                       <div className="pt-2 flex justify-end sticky bottom-0 bg-[#111] pb-4 border-t border-gray-800">
-                        <button disabled={isSubmitting} type="submit" className="btn-pixel bg-green-700 hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-8 py-3 pixel-font text-lg shadow-[0_0_15px_rgba(21,128,61,0.6)] active:translate-y-1">
-                          {isSubmitting ? '提交中...' : (isOfflineMode ? '保存到本地 [ Ctrl+Enter ]' : '上传至云端库 [ Ctrl+Enter ]')}
-                        </button>
+                        <button type="submit" className="btn-pixel bg-green-700 hover:bg-green-600 text-white px-8 py-3 pixel-font text-lg shadow-[0_0_15px_rgba(21,128,61,0.6)] active:translate-y-1">保存至本地 [ ENTER ]</button>
                       </div>
                     </form>
                   </div>
