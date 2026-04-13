@@ -181,7 +181,7 @@
           const [isModalOpen, setIsModalOpen] = useState(false);
           const [activeDialogue, setActiveDialogue] = useState(null); 
           const [formData, setFormData] = useState({ authorName: '', roleId: 1, title: '', content: '', type: '沟通时刻' });
-          const ALLOW_DELETE = false;
+          const ALLOW_DELETE = true;
 
           useEffect(() => {
             let unsubscribe = null;
@@ -287,10 +287,11 @@
             try {
               const fb = window.__FIREBASE__;
               if (!fb || !fb.db) return;
+              if (!confirm('确定要删除这条记录吗？删除后无法恢复。')) return;
               await fb.remove(fb.ref(fb.db, `classJournalEntries/${id}`));
             } catch (error) {
               console.error('删除失败：', error);
-              alert('删除失败，请检查 Firebase 规则。');
+              alert('删除失败。请确认 Firebase 规则允许写入和删除（.write: true）。');
             }
           };
 
@@ -304,7 +305,7 @@
                   <div className="space-y-4">
                     <h2 className="text-xl md:text-2xl text-yellow-400 pixel-font tracking-widest animate-pulse">★ 浙江师范大学经济与管理学院 ★</h2>
                     <h1 className="text-4xl md:text-6xl font-bold text-white pixel-font leading-tight drop-shadow-[4px_4px_0_rgba(255,0,0,0.8)]">“经”心领航 <br/> 聚力同行</h1>
-                    <div className="rpg-border inline-block p-2 mt-4 bg-blue-900 text-yellow-300 pixel-font animate-bounce">领导力动态手账系统 (多人联机版)</div>
+                    <div className="rpg-border inline-block p-2 mt-4 bg-blue-900 text-yellow-300 pixel-font animate-bounce">领导力动态手账系统 (多人联机版 / 可删除)</div>
                   </div>
                   <div className="flex justify-center gap-8 my-8 items-end">
                      <CharacterImage member={TEAM_ROSTER[0]} size={64} direction="right" />
